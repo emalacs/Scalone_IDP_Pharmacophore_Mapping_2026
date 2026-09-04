@@ -96,8 +96,13 @@ export default function MolstarViewer({ ligandUrl, feature, featureUrl, layers =
         plugin.managers.camera.reset()
         setLoadState('ready')
       } catch (err) {
-        console.error(err)
-        if (!cancelled) setLoadState('error')
+        // A superseded reload (e.g. rapid dropdown changes) can crash mid-flight
+        // when a newer effect's clearPlugin() wipes state out from under this
+        // one's in-progress fetch/parse -- expected, not worth logging.
+        if (!cancelled) {
+          console.error(err)
+          setLoadState('error')
+        }
       }
     })()
 

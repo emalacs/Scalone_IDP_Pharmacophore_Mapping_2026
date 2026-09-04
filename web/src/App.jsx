@@ -4,6 +4,7 @@ import {
   FEATURES,
   NEGATIVE_SPACE_LAYERS,
   RESOLUTIONS,
+  SPACE_DEFINITIONS,
   SPACES,
   SUBSETS,
   featureUrl,
@@ -14,14 +15,33 @@ import {
 export default function App() {
   const [subsetId, setSubsetId] = useState(SUBSETS[0].id)
   const [spaceId, setSpaceId] = useState(SPACES[0].id)
+  const [variantId, setVariantId] = useState(SPACES[0].variants[0].id)
   const [featureId, setFeatureId] = useState(FEATURES[0].id)
   const [resolutionId, setResolutionId] = useState(RESOLUTIONS[3].id) // top5pct
   const [visibleLayerIds, setVisibleLayerIds] = useState(() => new Set())
 
   const subset = SUBSETS.find((s) => s.id === subsetId)
   const space = SPACES.find((s) => s.id === spaceId)
+  const variant = space.variants.find((v) => v.id === variantId) ?? space.variants[0]
   const feature = FEATURES.find((f) => f.id === featureId)
   const resolution = RESOLUTIONS.find((r) => r.id === resolutionId)
+
+  // Each space has its own set of variants; switching space resets to that
+  // space's default (plain) rather than carrying over a variant id that may
+  // not exist there.
+  const handleSpaceChange = (id) => {
+    setSpaceId(id)
+    const newSpace = SPACES.find((s) => s.id === id)
+    setVariantId(newSpace.variants[0].id)
+  }
+
+  // A non-plain variant (contacts, ratio_*, diff) has its own established
+  // color, overriding the feature's own color for that selection. Memoized so
+  // MolstarViewer's reload effect (keyed on this object's identity) doesn't
+  // fire on every render -- e.g. a layer-checkbox toggle -- only when the
+  // feature or its effective color actually changes.
+  const displayColor = variant.color ?? feature.color
+  const displayFeature = useMemo(() => ({ ...feature, color: displayColor }), [feature, displayColor])
 
   const layers = useMemo(
     () =>
@@ -49,6 +69,7 @@ export default function App() {
         <h1 className="text-lg font-semibold tracking-wide text-neutral-200">
           Pharmacophore Viewer <span className="text-neutral-500">· proof of concept</span>
         </h1>
+        <p className="mt-1 text-sm text-neutral-500">{SPACE_DEFINITIONS}</p>
 
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-neutral-400">
@@ -71,7 +92,7 @@ export default function App() {
             <select
               className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-100"
               value={spaceId}
-              onChange={(e) => setSpaceId(e.target.value)}
+              onChange={(e) => handleSpaceChange(e.target.value)}
             >
               {SPACES.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -80,6 +101,23 @@ export default function App() {
               ))}
             </select>
           </label>
+
+          {space.variants.length > 1 && (
+            <label className="flex items-center gap-2 text-sm text-neutral-400">
+              Variant
+              <select
+                className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-100"
+                value={variantId}
+                onChange={(e) => setVariantId(e.target.value)}
+              >
+                {space.variants.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <label className="flex items-center gap-2 text-sm text-neutral-400">
             Feature map
@@ -133,8 +171,8 @@ export default function App() {
           <MolstarViewer
             key={subsetId}
             ligandUrl={ligandUrl(subset)}
-            featureUrl={featureUrl(subset, space, feature, resolution)}
-            feature={feature}
+            featureUrl={featureUrl(subset, space, feature, variant, resolution)}
+            feature={displayFeature}
             layers={layers}
           />
         </div>
