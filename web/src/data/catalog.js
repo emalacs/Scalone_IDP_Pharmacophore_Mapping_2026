@@ -35,7 +35,180 @@ export const NEGATIVE_SPACE_LAYERS = [
   { id: 'contested_space', label: 'Contested space', file: 'contested_space.mrc.gz', color: 0xff7800 },
 ]
 
+// All 47 curated subsets from output/ (everything with growth_features/,
+// negative_space/, and ligand_centroid.pdb; excludes output/graph_figures/
+// and output/full/ -- the latter has ligand resname "UNL" and no .pml/figures
+// tying it to a known compound, so it was left out rather than guessed at).
+//
+// Six subsets only have full-resolution growth_features maps, no thinned
+// top-N%% variants (the thinning step wasn't run for these in the source
+// pipeline): 1AA_PCA_C0_Graph0, 1AA_PCA_C0_Graph1, Maso_PCA_C1_Graph0,
+// Maso_PCA_C1_Graph1, Maso_PCA_C1_Graph2, Maso_PCA_C1_Graph3. Picking a
+// thinned Resolution for those will surface the viewer's normal fetch-error
+// state rather than silently failing.
 export const SUBSETS = [
+  {
+    id: '1AA_full',
+    label: '1AA · Full trajectory',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C0',
+    label: '1AA · PCA C0 · All graphs',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C0_Graph0',
+    label: '1AA · PCA C0 · Graph 0',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C0_Graph1',
+    label: '1AA · PCA C0 · Graph 1',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C1',
+    label: '1AA · PCA C1 · All graphs',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C1_Graph0',
+    label: '1AA · PCA C1 · Graph 0',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C1_Graph1',
+    label: '1AA · PCA C1 · Graph 1',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C1_Graph2',
+    label: '1AA · PCA C1 · Graph 2',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C1_Graph3',
+    label: '1AA · PCA C1 · Graph 3',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C2',
+    label: '1AA · PCA C2 · All graphs',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C2_Graph0',
+    label: '1AA · PCA C2 · Graph 0',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C2_Graph1',
+    label: '1AA · PCA C2 · Graph 1',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C3',
+    label: '1AA · PCA C3 · All graphs',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C3_Graph0',
+    label: '1AA · PCA C3 · Graph 0',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: '1AA_PCA_C3_Graph1',
+    label: '1AA · PCA C3 · Graph 1',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_full',
+    label: 'EPI · Full trajectory',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C0',
+    label: 'EPI · PCA C0 · All graphs',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C0_Graph0',
+    label: 'EPI · PCA C0 · Graph 0',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C0_Graph1',
+    label: 'EPI · PCA C0 · Graph 1',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C0_Graph2',
+    label: 'EPI · PCA C0 · Graph 2',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C0_Graph3',
+    label: 'EPI · PCA C0 · Graph 3',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C1',
+    label: 'EPI · PCA C1 · All graphs',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C1_Graph0',
+    label: 'EPI · PCA C1 · Graph 0',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C1_Graph1',
+    label: 'EPI · PCA C1 · Graph 1',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C1_Graph2',
+    label: 'EPI · PCA C1 · Graph 2',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C1_Graph3',
+    label: 'EPI · PCA C1 · Graph 3',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C2',
+    label: 'EPI · PCA C2 · All graphs',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
   {
     id: 'EPI_PCA_C2_Graph0',
     label: 'EPI · PCA C2 · Graph 0',
@@ -51,6 +224,108 @@ export const SUBSETS = [
   {
     id: 'EPI_PCA_C2_Graph2',
     label: 'EPI · PCA C2 · Graph 2',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'EPI_PCA_C2_Graph3',
+    label: 'EPI · PCA C2 · Graph 3',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Masofaniten_full',
+    label: 'Masofaniten · Full trajectory',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C0',
+    label: 'Masofaniten · PCA C0 · All graphs',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C0_Graph0',
+    label: 'Masofaniten · PCA C0 · Graph 0',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C0_Graph1',
+    label: 'Masofaniten · PCA C0 · Graph 1',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C0_Graph2',
+    label: 'Masofaniten · PCA C0 · Graph 2',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C0_Graph3',
+    label: 'Masofaniten · PCA C0 · Graph 3',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C1',
+    label: 'Masofaniten · PCA C1 · All graphs',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C1_Graph0',
+    label: 'Masofaniten · PCA C1 · Graph 0',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C1_Graph1',
+    label: 'Masofaniten · PCA C1 · Graph 1',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C1_Graph2',
+    label: 'Masofaniten · PCA C1 · Graph 2',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C1_Graph3',
+    label: 'Masofaniten · PCA C1 · Graph 3',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C2',
+    label: 'Masofaniten · PCA C2 · All graphs',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C2_Graph0',
+    label: 'Masofaniten · PCA C2 · Graph 0',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C2_Graph1',
+    label: 'Masofaniten · PCA C2 · Graph 1',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C2_Graph2',
+    label: 'Masofaniten · PCA C2 · Graph 2',
+    ligandFile: 'ligand_centroid.pdb',
+    featuresDir: 'growth_features',
+  },
+  {
+    id: 'Maso_PCA_C2_Graph3',
+    label: 'Masofaniten · PCA C2 · Graph 3',
     ligandFile: 'ligand_centroid.pdb',
     featuresDir: 'growth_features',
   },
