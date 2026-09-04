@@ -5,13 +5,62 @@
 // empty isosurface for these subsets: growth_features/*.mrc data (Aug 11)
 // tops out around 0.22-0.55 depending on subset/feature, below the 0.3 cutoff
 // the regenerated pml (Sep 2) hardcodes for 5 of 6 feature types.
+//
+// Feature identity (which chemical interaction type) is space-agnostic; the
+// underlying directory and filename differ per SPACE below.
 export const FEATURES = [
-  { id: 'aromatic_sites', label: 'Aromatic sites', baseName: 'aromatic_sites', color: 0x000000 },
-  { id: 'hydrophobic_sites', label: 'Hydrophobic sites', baseName: 'hydrophobic_sites', color: 0x228b22 },
-  { id: 'hbond_acceptor_sites', label: 'H-bond acceptor sites', baseName: 'hbond_acceptor_sites', color: 0xb22222 },
-  { id: 'hbond_donor_sites', label: 'H-bond donor sites', baseName: 'hbond_donor_sites', color: 0xb22222 },
-  { id: 'negative_charge_sites', label: 'Negative charge sites', baseName: 'negative_charge_sites', color: 0xff0000 },
-  { id: 'positive_charge_sites', label: 'Positive charge sites', baseName: 'positive_charge_sites', color: 0x0000ff },
+  { id: 'aromatic', label: 'Aromatic', color: 0x000000 },
+  { id: 'hydrophobic', label: 'Hydrophobic', color: 0x228b22 },
+  { id: 'hbond_acceptor', label: 'H-bond acceptor', color: 0xb22222 },
+  { id: 'hbond_donor', label: 'H-bond donor', color: 0xb22222 },
+  { id: 'negative_charge', label: 'Negative charge', color: 0xff0000 },
+  { id: 'positive_charge', label: 'Positive charge', color: 0x0000ff },
+]
+
+// Two independent pharmacophores per subset, per view_pharmacophore.pml's own
+// section headers: "CHEMICAL FEATURES (GROWTH SPACE)" (growth_features/) and
+// "PHARMACOPHORE FROM CONTESTED SPACE" (pharmacophore_contested/). Growth
+// space = protein occupancy < 30%, contested space = occupancy >= 30% (see
+// negative_space/ comments in the same pml). baseNames map each FEATURES id
+// to that space's actual filename prefix.
+//
+// pharmacophore_contested/ also has _contacts / _non_contacts / _diff /
+// _ratio_contact_dominant / _ratio_noncontact_dominant variants beyond what's
+// wired up here — only the plain occupancy maps (matching growth_features'
+// level of detail) are exposed for now.
+//
+// Thinned top-N% variants are missing for some subsets in each space (source
+// pipeline gap, not a bug here): growth space -- 1AA_PCA_C0_Graph0/1,
+// Maso_PCA_C1_Graph0-3; contested space -- 1AA_PCA_C0(+Graph0/1),
+// EPI_PCA_C1(+Graph0-3), Maso_PCA_C1(+Graph0-3). Picking an unavailable
+// resolution surfaces the viewer's normal fetch-error state.
+export const SPACES = [
+  {
+    id: 'growth',
+    label: 'Growth space',
+    featuresDir: 'growth_features',
+    baseNames: {
+      aromatic: 'aromatic_sites',
+      hydrophobic: 'hydrophobic_sites',
+      hbond_acceptor: 'hbond_acceptor_sites',
+      hbond_donor: 'hbond_donor_sites',
+      negative_charge: 'negative_charge_sites',
+      positive_charge: 'positive_charge_sites',
+    },
+  },
+  {
+    id: 'contested',
+    label: 'Contested space',
+    featuresDir: 'pharmacophore_contested',
+    baseNames: {
+      aromatic: 'aromatic_occupancy',
+      hydrophobic: 'hydrophobic_occupancy',
+      hbond_acceptor: 'hbond_acceptors_occupancy',
+      hbond_donor: 'hbond_donors_occupancy',
+      negative_charge: 'negative_occupancy',
+      positive_charge: 'positive_occupancy',
+    },
+  },
 ]
 
 // Matches the file variants view_pharmacophore.pml loads per feature: the
@@ -36,298 +85,246 @@ export const NEGATIVE_SPACE_LAYERS = [
 ]
 
 // All 47 curated subsets from output/ (everything with growth_features/,
-// negative_space/, and ligand_centroid.pdb; excludes output/graph_figures/
-// and output/full/ -- the latter has ligand resname "UNL" and no .pml/figures
-// tying it to a known compound, so it was left out rather than guessed at).
-//
-// Six subsets only have full-resolution growth_features maps, no thinned
-// top-N%% variants (the thinning step wasn't run for these in the source
-// pipeline): 1AA_PCA_C0_Graph0, 1AA_PCA_C0_Graph1, Maso_PCA_C1_Graph0,
-// Maso_PCA_C1_Graph1, Maso_PCA_C1_Graph2, Maso_PCA_C1_Graph3. Picking a
-// thinned Resolution for those will surface the viewer's normal fetch-error
-// state rather than silently failing.
+// pharmacophore_contested/, negative_space/, and ligand_centroid.pdb;
+// excludes output/graph_figures/ and output/full/ -- the latter has ligand
+// resname "UNL" and no .pml/figures tying it to a known compound, so it was
+// left out rather than guessed at). See the SPACES comment above for
+// per-subset resolution-availability gaps.
 export const SUBSETS = [
   {
     id: '1AA_full',
     label: '1AA · Full trajectory',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C0',
-    label: '1AA · PCA C0 · All graphs',
+    label: '1AA · PCA C0 · Full cluster',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C0_Graph0',
     label: '1AA · PCA C0 · Graph 0',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C0_Graph1',
     label: '1AA · PCA C0 · Graph 1',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C1',
-    label: '1AA · PCA C1 · All graphs',
+    label: '1AA · PCA C1 · Full cluster',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C1_Graph0',
     label: '1AA · PCA C1 · Graph 0',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C1_Graph1',
     label: '1AA · PCA C1 · Graph 1',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C1_Graph2',
     label: '1AA · PCA C1 · Graph 2',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C1_Graph3',
     label: '1AA · PCA C1 · Graph 3',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C2',
-    label: '1AA · PCA C2 · All graphs',
+    label: '1AA · PCA C2 · Full cluster',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C2_Graph0',
     label: '1AA · PCA C2 · Graph 0',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C2_Graph1',
     label: '1AA · PCA C2 · Graph 1',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C3',
-    label: '1AA · PCA C3 · All graphs',
+    label: '1AA · PCA C3 · Full cluster',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C3_Graph0',
     label: '1AA · PCA C3 · Graph 0',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: '1AA_PCA_C3_Graph1',
     label: '1AA · PCA C3 · Graph 1',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_full',
     label: 'EPI · Full trajectory',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C0',
-    label: 'EPI · PCA C0 · All graphs',
+    label: 'EPI · PCA C0 · Full cluster',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C0_Graph0',
     label: 'EPI · PCA C0 · Graph 0',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C0_Graph1',
     label: 'EPI · PCA C0 · Graph 1',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C0_Graph2',
     label: 'EPI · PCA C0 · Graph 2',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C0_Graph3',
     label: 'EPI · PCA C0 · Graph 3',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C1',
-    label: 'EPI · PCA C1 · All graphs',
+    label: 'EPI · PCA C1 · Full cluster',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C1_Graph0',
     label: 'EPI · PCA C1 · Graph 0',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C1_Graph1',
     label: 'EPI · PCA C1 · Graph 1',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C1_Graph2',
     label: 'EPI · PCA C1 · Graph 2',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C1_Graph3',
     label: 'EPI · PCA C1 · Graph 3',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C2',
-    label: 'EPI · PCA C2 · All graphs',
+    label: 'EPI · PCA C2 · Full cluster',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C2_Graph0',
     label: 'EPI · PCA C2 · Graph 0',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C2_Graph1',
     label: 'EPI · PCA C2 · Graph 1',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C2_Graph2',
     label: 'EPI · PCA C2 · Graph 2',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'EPI_PCA_C2_Graph3',
     label: 'EPI · PCA C2 · Graph 3',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Masofaniten_full',
     label: 'Masofaniten · Full trajectory',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C0',
-    label: 'Masofaniten · PCA C0 · All graphs',
+    label: 'Masofaniten · PCA C0 · Full cluster',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C0_Graph0',
     label: 'Masofaniten · PCA C0 · Graph 0',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C0_Graph1',
     label: 'Masofaniten · PCA C0 · Graph 1',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C0_Graph2',
     label: 'Masofaniten · PCA C0 · Graph 2',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C0_Graph3',
     label: 'Masofaniten · PCA C0 · Graph 3',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C1',
-    label: 'Masofaniten · PCA C1 · All graphs',
+    label: 'Masofaniten · PCA C1 · Full cluster',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C1_Graph0',
     label: 'Masofaniten · PCA C1 · Graph 0',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C1_Graph1',
     label: 'Masofaniten · PCA C1 · Graph 1',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C1_Graph2',
     label: 'Masofaniten · PCA C1 · Graph 2',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C1_Graph3',
     label: 'Masofaniten · PCA C1 · Graph 3',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C2',
-    label: 'Masofaniten · PCA C2 · All graphs',
+    label: 'Masofaniten · PCA C2 · Full cluster',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C2_Graph0',
     label: 'Masofaniten · PCA C2 · Graph 0',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C2_Graph1',
     label: 'Masofaniten · PCA C2 · Graph 1',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C2_Graph2',
     label: 'Masofaniten · PCA C2 · Graph 2',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
   {
     id: 'Maso_PCA_C2_Graph3',
     label: 'Masofaniten · PCA C2 · Graph 3',
     ligandFile: 'ligand_centroid.pdb',
-    featuresDir: 'growth_features',
   },
 ]
 
@@ -344,8 +341,9 @@ export function ligandUrl(subset) {
   return `${DATA_BASE}/${subset.id}/${subset.ligandFile}`
 }
 
-export function featureUrl(subset, feature, resolution) {
-  return `${DATA_BASE}/${subset.id}/${subset.featuresDir}/${feature.baseName}${resolution.suffix}.mrc.gz`
+export function featureUrl(subset, space, feature, resolution) {
+  const baseName = space.baseNames[feature.id]
+  return `${DATA_BASE}/${subset.id}/${space.featuresDir}/${baseName}${resolution.suffix}.mrc.gz`
 }
 
 export function negativeSpaceUrl(subset, layer) {

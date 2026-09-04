@@ -1,14 +1,25 @@
 import { useMemo, useState } from 'react'
 import MolstarViewer from './components/MolstarViewer'
-import { FEATURES, NEGATIVE_SPACE_LAYERS, RESOLUTIONS, SUBSETS, featureUrl, ligandUrl, negativeSpaceUrl } from './data/catalog'
+import {
+  FEATURES,
+  NEGATIVE_SPACE_LAYERS,
+  RESOLUTIONS,
+  SPACES,
+  SUBSETS,
+  featureUrl,
+  ligandUrl,
+  negativeSpaceUrl,
+} from './data/catalog'
 
 export default function App() {
   const [subsetId, setSubsetId] = useState(SUBSETS[0].id)
+  const [spaceId, setSpaceId] = useState(SPACES[0].id)
   const [featureId, setFeatureId] = useState(FEATURES[0].id)
   const [resolutionId, setResolutionId] = useState(RESOLUTIONS[3].id) // top5pct
   const [visibleLayerIds, setVisibleLayerIds] = useState(() => new Set())
 
   const subset = SUBSETS.find((s) => s.id === subsetId)
+  const space = SPACES.find((s) => s.id === spaceId)
   const feature = FEATURES.find((f) => f.id === featureId)
   const resolution = RESOLUTIONS.find((r) => r.id === resolutionId)
 
@@ -48,6 +59,21 @@ export default function App() {
               onChange={(e) => setSubsetId(e.target.value)}
             >
               {SUBSETS.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-neutral-400">
+            Pharmacophore space
+            <select
+              className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-100"
+              value={spaceId}
+              onChange={(e) => setSpaceId(e.target.value)}
+            >
+              {SPACES.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.label}
                 </option>
@@ -107,7 +133,7 @@ export default function App() {
           <MolstarViewer
             key={subsetId}
             ligandUrl={ligandUrl(subset)}
-            featureUrl={featureUrl(subset, feature, resolution)}
+            featureUrl={featureUrl(subset, space, feature, resolution)}
             feature={feature}
             layers={layers}
           />
