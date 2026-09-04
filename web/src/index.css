@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@import "molstar/build/viewer/molstar.css";
+
+body {
+  margin: 0;
+}
