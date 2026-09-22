@@ -26,8 +26,10 @@ pharmacophore_utils.py  Core pipeline module the notebooks import
 ## Running the pipeline on your own trajectory
 
 Open in Google Colab (no local install required):
-- [`notebooks/01_split_trajectory_pca_graph.ipynb`](notebooks/01_split_trajectory_pca_graph.ipynb) — upload a trajectory + topology, split it into conformational subsets by PCA and graph clustering
-- [`notebooks/02_pharmacophore_from_subset.ipynb`](notebooks/02_pharmacophore_from_subset.ipynb) — upload a single trajectory (e.g. one subset from the notebook above), compute its pharmacophore maps and a PyMOL script to view them
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/emalacs/Scalone_IDP_Pharmacophore_Mapping_2026/blob/main/notebooks/01_split_trajectory_pca_graph.ipynb) [`01_split_trajectory_pca_graph.ipynb`](notebooks/01_split_trajectory_pca_graph.ipynb) — upload a trajectory + topology, split it into conformational subsets by PCA and graph clustering
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/emalacs/Scalone_IDP_Pharmacophore_Mapping_2026/blob/main/notebooks/02_pharmacophore_from_subset.ipynb) [`02_pharmacophore_from_subset.ipynb`](notebooks/02_pharmacophore_from_subset.ipynb) — upload a single trajectory (e.g. one subset from the notebook above), compute its pharmacophore maps and a PyMOL script to view them
 
 Or run `pharmacophore_utils.py` locally — see `requirements.txt`.
 
