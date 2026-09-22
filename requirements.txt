@@ -1,0 +1,44 @@
+# Python dependencies for pharmacophore_utils.py
+# All packages below have pip wheels (no conda required); the Colab notebooks
+# in notebooks/ install this same set with %pip install.
+
+# Trajectory handling (MDTraj -- contacts/distances; MDAnalysis -- topology/ligand inspection)
+mdtraj
+MDAnalysis
+
+# Cheminformatics -- requires RDKit >= 2022.09 for rdDetermineBonds (aromaticity from .gro files)
+rdkit
+
+# Deep learning / GPU acceleration (voxel-grid steps auto-detect CUDA, fall back to CPU otherwise)
+torch
+
+# Visualization
+plotly
+matplotlib
+
+# Data analysis / numerics
+pandas
+numpy
+scipy
+
+# Block error estimation for contact probabilities -- falls back to zero error when not installed
+pyblock
+
+# Progress bars
+tqdm
+
+# Image handling (draw_molecule_with_labels)
+Pillow
+
+# Voxel / pharmacophore map analysis
+mrcfile       # MRC volume files for PyMOL volumetric display
+scikit-learn  # pairwise_distances, PCA, StandardScaler, AgglomerativeClustering
+deeptime      # KMeans clustering for PCA trajectory clustering
+
+# Graph-based sub-clustering (residue contact-network Jaccard distance)
+networkx      # per-frame residue contact graphs
+hdbscan       # optional clustering backend (default backend 'agglomerative' only needs scikit-learn)
+
+# Jupyter
+ipywidgets
+nbformat
