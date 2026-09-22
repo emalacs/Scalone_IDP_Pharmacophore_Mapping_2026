@@ -12,6 +12,10 @@ import {
   negativeSpaceUrl,
 } from './data/catalog'
 
+const labelClass = 'block text-xs font-medium uppercase tracking-wide text-white/50'
+const selectClass =
+  'mt-1 w-full rounded border border-white/20 bg-white/5 px-2 py-1.5 text-sm text-white focus:border-dartmouth-green focus:outline-none focus:ring-1 focus:ring-dartmouth-green'
+
 export default function App() {
   const [subsetId, setSubsetId] = useState(SUBSETS[0].id)
   const [spaceId, setSpaceId] = useState(SPACES[0].id)
@@ -19,6 +23,7 @@ export default function App() {
   const [featureId, setFeatureId] = useState(FEATURES[0].id)
   const [resolutionId, setResolutionId] = useState(RESOLUTIONS[3].id) // top5pct
   const [visibleLayerIds, setVisibleLayerIds] = useState(() => new Set())
+  const [layerSlotNode, setLayerSlotNode] = useState(null)
 
   const subset = SUBSETS.find((s) => s.id === subsetId)
   const space = SPACES.find((s) => s.id === spaceId)
@@ -47,6 +52,7 @@ export default function App() {
     () =>
       NEGATIVE_SPACE_LAYERS.map((layer) => ({
         id: layer.id,
+        label: layer.label,
         color: layer.color,
         url: negativeSpaceUrl(subset, layer),
         visible: visibleLayerIds.has(layer.id),
@@ -64,21 +70,45 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100">
-      <div className="mx-auto max-w-5xl px-4 py-6">
-        <h1 className="text-lg font-semibold tracking-wide text-neutral-200">
-          Pharmacophore Viewer <span className="text-neutral-500">· proof of concept</span>
-        </h1>
-        <p className="mt-1 text-sm text-neutral-500">{SPACE_DEFINITIONS}</p>
+    <div className="flex min-h-screen bg-white text-neutral-900">
+      <aside className="flex w-80 flex-shrink-0 flex-col gap-6 overflow-y-auto bg-rich-forest px-5 py-6 text-white">
+        {/* Institution header */}
+        <div className="space-y-3">
+          <img
+            src="/dartmouth-logo.svg"
+            alt="Dartmouth College"
+            className="h-9 w-auto"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'
+            }}
+          />
+          {/* TODO: replace with the actual lab/department affiliation */}
+          <div className="text-xs uppercase tracking-wide text-white/50">Department of Chemistry · Dartmouth College</div>
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium leading-snug text-white">
+              Dynamic Pharmacophore Mapping for Intrinsically Disordered Drug Targets
+            </p>
+            {/* TODO: paper + SI links, to be provided */}
+            <div className="flex gap-3 text-xs">
+              <a href="#" className="text-dartmouth-green underline decoration-dartmouth-green/50 hover:text-white">
+                Paper
+              </a>
+              <a href="#" className="text-dartmouth-green underline decoration-dartmouth-green/50 hover:text-white">
+                Supplementary Information
+              </a>
+            </div>
+          </div>
+        </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-neutral-400">
-            Subset
-            <select
-              className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-100"
-              value={subsetId}
-              onChange={(e) => setSubsetId(e.target.value)}
-            >
+        <hr className="border-white/10" />
+
+        {/* Settings */}
+        <div className="space-y-4">
+          <div className="text-xs uppercase tracking-wide text-white/50">Pharmacophore Viewer</div>
+
+          <label className="block">
+            <span className={labelClass}>Subset</span>
+            <select className={selectClass} value={subsetId} onChange={(e) => setSubsetId(e.target.value)}>
               {SUBSETS.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.label}
@@ -87,29 +117,22 @@ export default function App() {
             </select>
           </label>
 
-          <label className="flex items-center gap-2 text-sm text-neutral-400">
-            Pharmacophore space
-            <select
-              className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-100"
-              value={spaceId}
-              onChange={(e) => handleSpaceChange(e.target.value)}
-            >
+          <label className="block">
+            <span className={labelClass}>Pharmacophore space</span>
+            <select className={selectClass} value={spaceId} onChange={(e) => handleSpaceChange(e.target.value)}>
               {SPACES.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.label}
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-white/40">{SPACE_DEFINITIONS}</p>
           </label>
 
           {space.variants.length > 1 && (
-            <label className="flex items-center gap-2 text-sm text-neutral-400">
-              Variant
-              <select
-                className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-100"
-                value={variantId}
-                onChange={(e) => setVariantId(e.target.value)}
-              >
+            <label className="block">
+              <span className={labelClass}>Variant</span>
+              <select className={selectClass} value={variantId} onChange={(e) => setVariantId(e.target.value)}>
                 {space.variants.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.label}
@@ -119,13 +142,9 @@ export default function App() {
             </label>
           )}
 
-          <label className="flex items-center gap-2 text-sm text-neutral-400">
-            Feature map
-            <select
-              className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-100"
-              value={featureId}
-              onChange={(e) => setFeatureId(e.target.value)}
-            >
+          <label className="block">
+            <span className={labelClass}>Feature map</span>
+            <select className={selectClass} value={featureId} onChange={(e) => setFeatureId(e.target.value)}>
               {FEATURES.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.label}
@@ -134,13 +153,9 @@ export default function App() {
             </select>
           </label>
 
-          <label className="flex items-center gap-2 text-sm text-neutral-400">
-            Resolution
-            <select
-              className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-neutral-100"
-              value={resolutionId}
-              onChange={(e) => setResolutionId(e.target.value)}
-            >
+          <label className="block">
+            <span className={labelClass}>Resolution</span>
+            <select className={selectClass} value={resolutionId} onChange={(e) => setResolutionId(e.target.value)}>
               {RESOLUTIONS.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.label}
@@ -148,35 +163,31 @@ export default function App() {
               ))}
             </select>
           </label>
-
-          <div className="flex items-center gap-3 text-sm text-neutral-400">
-            {NEGATIVE_SPACE_LAYERS.map((layer) => (
-              <label key={layer.id} className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  checked={visibleLayerIds.has(layer.id)}
-                  onChange={() => toggleLayer(layer.id)}
-                />
-                <span
-                  className="inline-block h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: `#${layer.color.toString(16).padStart(6, '0')}` }}
-                />
-                {layer.label}
-              </label>
-            ))}
-          </div>
         </div>
 
-        <div className="relative mt-4 h-[65vh] min-h-[420px] w-full overflow-hidden rounded border border-neutral-800">
+        <hr className="border-white/10" />
+
+        {/* Negative-space layer toggles + contour sliders, rendered by MolstarViewer via portal
+            once each layer's volume stats are known. */}
+        <div className="space-y-3">
+          <div className={labelClass}>Negative space</div>
+          <div ref={setLayerSlotNode} className="space-y-3" />
+        </div>
+      </aside>
+
+      <main className="flex-1 p-6">
+        <div className="relative h-[calc(100vh-3rem)] w-full overflow-hidden rounded border border-neutral-200">
           <MolstarViewer
             key={subsetId}
             ligandUrl={ligandUrl(subset)}
             featureUrl={featureUrl(subset, space, feature, variant, resolution)}
             feature={displayFeature}
             layers={layers}
+            onToggleLayer={toggleLayer}
+            layerControlsSlot={layerSlotNode}
           />
         </div>
-      </div>
+      </main>
     </div>
   )
 }

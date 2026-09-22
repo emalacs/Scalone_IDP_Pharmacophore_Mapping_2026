@@ -1,6 +1,13 @@
 @import "tailwindcss";
 @import "molstar/build/viewer/molstar.css";
 
+/* Dartmouth College brand colors — communications.dartmouth.edu/guides-and-tools/design-guidelines/dartmouth-colors */
+@theme {
+  --color-dartmouth-green: #00693e;
+  --color-forest-green: #12312b;
+  --color-rich-forest: #0d1e1c;
+}
+
 body {
   margin: 0;
 }

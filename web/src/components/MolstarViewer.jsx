@@ -3,6 +3,7 @@ import { createPluginUI } from 'molstar/lib/mol-plugin-ui'
 import { renderReact18 } from 'molstar/lib/mol-plugin-ui/react18'
 import { PluginConfig } from 'molstar/lib/mol-plugin/config'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   clearPlugin,
   loadLigandStructure,
@@ -13,18 +14,30 @@ import {
 
 const CONTOUR_UPDATE_DEBOUNCE_MS = 60
 
-export default function MolstarViewer({ ligandUrl, feature, featureUrl, layers = [] }) {
+export default function MolstarViewer({
+  ligandUrl,
+  feature,
+  featureUrl,
+  layers = [],
+  onToggleLayer,
+  layerControlsSlot = null,
+}) {
   const containerRef = useRef(null)
   const pluginRef = useRef(null)
   const reprRef = useRef(null)
   const debounceTimer = useRef(null)
   const layerStateRef = useRef(new Map()) // layer id -> { binaryData, repr }
+  const layerDebounceTimers = useRef(new Map()) // layer id -> timer
   const layersRef = useRef(layers)
 
   const [pluginReady, setPluginReady] = useState(false)
   const [loadState, setLoadState] = useState('loading')
   const [volumeStats, setVolumeStats] = useState(null)
   const [contour, setContour] = useState(0)
+  // layer id -> { stats, contour }. Only set once a layer's volume has
+  // actually loaded, so the sidebar slider for it can be bounded/seeded from
+  // real data rather than a guessed range.
+  const [layerVolumeInfo, setLayerVolumeInfo] = useState({})
 
   useEffect(() => {
     layersRef.current = layers
@@ -71,6 +84,9 @@ export default function MolstarViewer({ ligandUrl, feature, featureUrl, layers =
       try {
         await clearPlugin(plugin)
         layerStateRef.current.clear()
+        for (const timer of layerDebounceTimers.current.values()) clearTimeout(timer)
+        layerDebounceTimers.current.clear()
+        setLayerVolumeInfo({})
         if (cancelled) return
 
         await loadLigandStructure(plugin, ligandUrl)
@@ -86,11 +102,11 @@ export default function MolstarViewer({ ligandUrl, feature, featureUrl, layers =
 
         for (const layer of layersRef.current) {
           if (!layer.visible) continue
-          const { binaryData, repr: layerRepr } = await loadVolumeIsosurface(plugin, layer.url, {
-            color: layer.color,
-          })
+          const { binaryData, repr: layerRepr, stats: layerStats, isoValue: layerIsoValue } =
+            await loadVolumeIsosurface(plugin, layer.url, { color: layer.color })
           if (cancelled) return
           layerStateRef.current.set(layer.id, { binaryData, repr: layerRepr })
+          setLayerVolumeInfo((prev) => ({ ...prev, [layer.id]: { stats: layerStats, contour: layerIsoValue } }))
         }
 
         plugin.managers.camera.reset()
@@ -124,14 +140,24 @@ export default function MolstarViewer({ ligandUrl, feature, featureUrl, layers =
         const loaded = layerStateRef.current.get(layer.id)
         if (layer.visible && !loaded) {
           try {
-            const { binaryData, repr } = await loadVolumeIsosurface(plugin, layer.url, { color: layer.color })
+            const { binaryData, repr, stats, isoValue } = await loadVolumeIsosurface(plugin, layer.url, {
+              color: layer.color,
+            })
             if (cancelled) return
             layerStateRef.current.set(layer.id, { binaryData, repr })
+            setLayerVolumeInfo((prev) => ({ ...prev, [layer.id]: { stats, contour: isoValue } }))
           } catch (err) {
             console.error(err)
           }
         } else if (!layer.visible && loaded) {
           layerStateRef.current.delete(layer.id)
+          clearTimeout(layerDebounceTimers.current.get(layer.id))
+          layerDebounceTimers.current.delete(layer.id)
+          setLayerVolumeInfo((prev) => {
+            const next = { ...prev }
+            delete next[layer.id]
+            return next
+          })
           await unloadVolume(plugin, loaded.binaryData).catch(console.error)
         }
       }
@@ -151,6 +177,57 @@ export default function MolstarViewer({ ligandUrl, feature, featureUrl, layers =
       updateIsosurfaceLevel(reprRef.current, value).catch(console.error)
     }, CONTOUR_UPDATE_DEBOUNCE_MS)
   }
+
+  const handleLayerContourChange = (layerId, value) => {
+    setLayerVolumeInfo((prev) => {
+      const entry = prev[layerId]
+      if (!entry) return prev
+      return { ...prev, [layerId]: { ...entry, contour: value } }
+    })
+
+    const loaded = layerStateRef.current.get(layerId)
+    if (!loaded) return
+
+    clearTimeout(layerDebounceTimers.current.get(layerId))
+    const timer = setTimeout(() => {
+      updateIsosurfaceLevel(loaded.repr, value).catch(console.error)
+    }, CONTOUR_UPDATE_DEBOUNCE_MS)
+    layerDebounceTimers.current.set(layerId, timer)
+  }
+
+  const layerControls = (
+    <>
+      {layers.map((layer) => {
+        const info = layerVolumeInfo[layer.id]
+        return (
+          <div key={layer.id} className="space-y-1.5">
+            <label className="flex items-center gap-2 text-sm text-white/80">
+              <input type="checkbox" checked={layer.visible} onChange={() => onToggleLayer?.(layer.id)} />
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: `#${layer.color.toString(16).padStart(6, '0')}` }}
+              />
+              {layer.label}
+            </label>
+            {layer.visible && info && (
+              <div className="flex items-center gap-2 pl-6 text-xs text-white/60">
+                <input
+                  type="range"
+                  min={info.stats.min}
+                  max={info.stats.max}
+                  step={(info.stats.max - info.stats.min) / 500 || 0.0001}
+                  value={info.contour}
+                  onChange={(e) => handleLayerContourChange(layer.id, Number(e.target.value))}
+                  className="w-full"
+                />
+                <span className="w-14 shrink-0 tabular-nums">{info.contour.toPrecision(3)}</span>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </>
+  )
 
   return (
     <div className="relative h-full w-full">
@@ -180,6 +257,7 @@ export default function MolstarViewer({ ligandUrl, feature, featureUrl, layers =
           <span className="w-16 whitespace-nowrap tabular-nums">{contour.toPrecision(3)}</span>
         </div>
       )}
+      {layerControlsSlot && createPortal(layerControls, layerControlsSlot)}
     </div>
   )
 }
