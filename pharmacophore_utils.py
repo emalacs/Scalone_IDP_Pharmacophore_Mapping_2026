@@ -191,9 +191,13 @@ except ImportError:
 
 try:
     import matplotlib.pyplot as _plt
+    from matplotlib.figure import Figure as _MplFigure
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as _MplFigureCanvasAgg
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     _plt = None
+    _MplFigure = None
+    _MplFigureCanvasAgg = None
     MATPLOTLIB_AVAILABLE = False
     print("Warning: matplotlib not available — FES plots disabled; "
           "install: pip install matplotlib")
@@ -891,7 +895,22 @@ def add_hbond_pair(donor, acceptor, hbond_pairs, donor_res):
     hbond_pairs[donor_res][donor][acceptor] += 1
 
 
-# ── MRC volume writer ────────────────────────────────────────────────────────
+# ── MRC volume I/O ───────────────────────────────────────────────────────────
+
+def _read_mrc_field(path: str) -> Tuple[np.ndarray, float, Tuple[float, float, float]]:
+    """Read an MRC volume back into (data, voxel_size, origin), undoing the
+    ZYX transpose applied on write so the array is XYZ again (matches nbins
+    from compute_negative_space()). Companion reader to _write_mrc_field()."""
+    if not MRCFILE_AVAILABLE:
+        raise ImportError("mrcfile required — install: pip install mrcfile")
+    with mrcfile.open(path, permissive=True) as mrc:
+        data = np.asarray(mrc.data, dtype=np.float32).T.copy()
+        voxel_size = float(mrc.voxel_size.x)
+        origin = (float(mrc.header.origin.x),
+                  float(mrc.header.origin.y),
+                  float(mrc.header.origin.z))
+    return data, voxel_size, origin
+
 
 def _write_mrc_field(field: np.ndarray, xmin, dx: float, fname: str,
                      gaussian_sigma: float = None) -> None:
@@ -960,6 +979,383 @@ def _jet_hex(t: float) -> str:
             return f"{r:02x}{g:02x}{b:02x}"
     r, g, b = (int(v * 255) for v in anchors[-1][1:])
     return f"{r:02x}{g:02x}{b:02x}"
+
+
+# ── MRC diff maps (contact vs non-contact) ───────────────────────────────────
+# Post-hoc analysis of the contacts/non-contacts occupancy pairs written by
+# save_mrc_files() — cancels rotational/rotameric noise shared between the
+# two (a residue that librates/flips locally can cross the contact-geometry
+# cutoff frame-to-frame without actually leaving the site). Ported from the
+# standalone mrc_pharmacophore_diff.py (kept alongside this module for now —
+# same implementation, folded in here so it's usable from a single-module
+# Colab notebook without shipping a second .py file). Only reads/writes MRC
+# files already on disk from a prior save_mrc_files() call — no dependency on
+# a live PharmacophoreTrajectory instance, so these stay module-level
+# functions rather than class methods.
+
+DIFF_CATEGORIES = [
+    'aromatic_occupancy',
+    'hbond_donors_occupancy',
+    'hbond_acceptors_occupancy',
+]
+DIFF_MAP_SETS = ['pharmacophore_full', 'pharmacophore_contested']
+
+
+def diff_category(map_dir: str, category: str,
+                  gaussian_sigma: Optional[float] = None,
+                  grid_tol: float = 1e-3,
+                  score_percentile_tiers: Optional[List[int]] = None) -> Optional[dict]:
+    """Compute both the raw and ratio-normalized contacts/non-contacts diff
+    for one category in one map-set directory. Returns a dict with both
+    written paths plus the in-memory arrays (for plot_diff_histogram()/
+    plot_diff_magnitude_scatter()), or None if either source file is missing
+    (category not computed for that run).
+
+    Two diff quantities, both computed here since they're cheap once
+    contact/non_contact are loaded (no extra I/O):
+
+    - 'diff' (raw, unclipped, range [-1, 1]): non_contact - contact. Only
+      meaningful when the two source maps have comparable overall magnitude
+      to begin with — see 'ratio' below for why that's often not the case.
+    - 'ratio' (range [-1, 1], every signal voxel): (non_contact - contact) /
+      (non_contact + contact). Per-voxel normalized asymmetry, independent of
+      how much total occupancy that voxel saw. +1 = voxel only ever touched
+      in non-contact state, -1 = only ever contact, 0 = perfectly balanced.
+
+    Why both exist: plotting raw diff against total occupancy
+    (contact+non_contact) shows every point confined to the wedge
+    |diff| <= magnitude (algebraic necessity, not a trend) — points sitting
+    exactly on that wedge's edge have contact=0 (or non_contact=0) exactly,
+    i.e. that voxel was NEVER touched in the other state at all. When one
+    category's overall base rate is much rarer than the other across the
+    whole trajectory (e.g. aromatic p/t-stack geometry vs. merely-nearby —
+    see DEVELOPMENT.md), most signal voxels pile up on that edge and the raw
+    diff reads as "non-contact-dominant everywhere," which conflates a
+    genuine trajectory-wide base-rate imbalance with the local
+    rotational/rotameric-noise overlap this technique was actually built to
+    cancel. 'ratio' divides that imbalance out per voxel, so it separates
+    "barely sampled, noisy either way" from "genuinely balanced between both
+    states" independent of overall magnitude."""
+    contact_path    = os.path.join(map_dir, f'{category}_contacts.mrc')
+    non_contact_path = os.path.join(map_dir, f'{category}_non_contacts.mrc')
+
+    if not (os.path.exists(contact_path) and os.path.exists(non_contact_path)):
+        print(f"  Skipping {category} (contacts/non_contacts MRC not both present)")
+        return None
+
+    contact, con_voxel, con_origin       = _read_mrc_field(contact_path)
+    non_contact, ncon_voxel, ncon_origin = _read_mrc_field(non_contact_path)
+
+    if contact.shape != non_contact.shape:
+        raise ValueError(
+            f"{category}: grid shape mismatch {contact.shape} vs {non_contact.shape} — "
+            f"contacts/non_contacts MRCs must come from the same compute_pharmacophore_maps() run"
+        )
+    if abs(con_voxel - ncon_voxel) > grid_tol:
+        raise ValueError(f"{category}: voxel_size mismatch {con_voxel} vs {ncon_voxel}")
+    if any(abs(a - b) > grid_tol for a, b in zip(con_origin, ncon_origin)):
+        raise ValueError(f"{category}: grid origin mismatch {con_origin} vs {ncon_origin}")
+
+    diff = non_contact - contact  # signed, unclipped: [-1, 1]
+
+    magnitude = contact + non_contact
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ratio = np.where(magnitude > 0, diff / magnitude, 0.0).astype(np.float32)
+
+    out_path       = os.path.join(map_dir, f'{category}_diff.mrc')
+    ratio_out_path = os.path.join(map_dir, f'{category}_diff_ratio.mrc')
+    _write_mrc_field(diff, con_origin, con_voxel, out_path, gaussian_sigma)
+    _write_mrc_field(ratio, con_origin, con_voxel, ratio_out_path, gaussian_sigma)
+
+    # ── Sign-split, non-negative ratio maps ─────────────────────────────────
+    # Same ratio values, split into two strictly->=0 fields instead of one
+    # signed one — lets each side be isomeshed in PyMOL independently (sharp
+    # polygon surface at a fixed level, vs. the inherently soft/diffuse
+    # `volume` density-cloud representation a single signed map is stuck
+    # with), and at its own level: contact-dominant and non-contact-dominant
+    # values aren't guaranteed to sit at comparable magnitudes, so a single
+    # shared +/-level on one signed map is often a compromise for one side or
+    # the other. Elementwise np.clip, not boolean masking — voxels with the
+    # "wrong" sign are already exactly 0.0 in the other map, not merely
+    # absent, so both stay on the same grid/shape as everything else.
+    ratio_noncontact_path = os.path.join(map_dir, f'{category}_ratio_noncontact_dominant.mrc')
+    ratio_contact_path    = os.path.join(map_dir, f'{category}_ratio_contact_dominant.mrc')
+    ratio_noncontact_dominant = np.clip(ratio, 0, None)
+    ratio_contact_dominant    = np.clip(-ratio, 0, None)
+    _write_mrc_field(ratio_noncontact_dominant, con_origin, con_voxel,
+                     ratio_noncontact_path, gaussian_sigma)
+    _write_mrc_field(ratio_contact_dominant, con_origin, con_voxel,
+                     ratio_contact_path, gaussian_sigma)
+
+    n_pos = int(np.count_nonzero(diff > 0))
+    n_neg = int(np.count_nonzero(diff < 0))
+    line1 = (f"{category}: diff range [{diff.min():+.3f}, {diff.max():+.3f}] — "
+            f"{n_pos:,} non-contact-dominant voxels, {n_neg:,} contact-dominant voxels")
+    line2 = f"saved {out_path}"
+    line2b = f"saved {ratio_out_path}"
+    line2c = f"saved {ratio_noncontact_path}"
+    line2d = f"saved {ratio_contact_path}"
+    print(f"  {line1}")
+    print(f"    {line2}")
+    print(f"    {line2b}")
+    print(f"    {line2c}")
+    print(f"    {line2d}")
+
+    # ── Empty-map check ──────────────────────────────────────────────────────
+    # A category where n_pos or n_neg is 0 has an entirely-zero split map on
+    # that side (e.g. hbond_donors/hbond_acceptors: non-contact's atom pool is
+    # so much broader than contact's — see DEVELOPMENT.md — that contact never
+    # locally wins anywhere in some subsets). Flagged here so you know at a
+    # glance whether it's worth adding that side to the PyMOL script at all,
+    # without having to load it and check manually.
+    tier_lines = []
+    empty_lines = []
+    if n_neg == 0:
+        empty_lines.append(f"EMPTY: {category}_ratio_contact_dominant — 0 contact-dominant voxels, "
+                           f"skip in PyMOL")
+    if n_pos == 0:
+        empty_lines.append(f"EMPTY: {category}_ratio_noncontact_dominant — 0 non-contact-dominant "
+                           f"voxels, skip in PyMOL")
+    for l in empty_lines:
+        print(f"    ⚠ {l}")
+
+    # ── Percentile-tiered variants of the split maps ────────────────────────
+    # Same top-N%-of-nonzero-voxels convention as save_mrc_files() (growth
+    # features / pharmacophore occupancy maps): only meaningful on a
+    # non-negative field, which is exactly why the sign-split above exists —
+    # raw diff/ratio are signed, so this is applied to the two split maps,
+    # not to diff/ratio themselves.
+    if score_percentile_tiers is None:
+        score_percentile_tiers = [1, 5, 10, 20]
+
+    def _write_tiers(field, base_path, label):
+        paths = {}
+        nonzero = field[field > 0]
+        if len(nonzero) == 0:
+            tier_lines.append(f"(skipping tiers for {label}: no nonzero voxels)")
+            return paths
+        for tier in score_percentile_tiers:
+            threshold  = float(np.percentile(nonzero, 100 - tier))
+            filtered   = np.where(field >= threshold, field, 0.0).astype(np.float32)
+            tier_path  = base_path[:-4] + f'_top{tier}pct.mrc'  # strip '.mrc', re-append
+            _write_mrc_field(filtered, con_origin, con_voxel, tier_path, gaussian_sigma)
+            paths[tier] = tier_path
+            n_sur = int(np.count_nonzero(filtered))
+            tier_lines.append(f"saved {tier_path} ({n_sur:,}/{len(nonzero):,} voxels, "
+                              f"threshold={threshold:.4f})")
+        return paths
+
+    ratio_noncontact_tier_paths = _write_tiers(
+        ratio_noncontact_dominant, ratio_noncontact_path, f'{category}_ratio_noncontact_dominant')
+    ratio_contact_tier_paths = _write_tiers(
+        ratio_contact_dominant, ratio_contact_path, f'{category}_ratio_contact_dominant')
+    for l in tier_lines:
+        print(f"    {l}")
+
+    # ── Noise-floor diagnostic ──────────────────────────────────────────────
+    # Restricted to voxels with actual occupancy signal (contact>0 or
+    # non_contact>0), NOT the full grid — most of the grid lies outside the
+    # analysis shell and is identically 0.0 in both source maps, which would
+    # swamp any histogram/percentile with trivial "never scored" zeros rather
+    # than the "scored, but cancels out" voxels this diagnostic is meant to
+    # characterize (same spike PyMOL's volume ramp histogram shows on the
+    # unmasked full array). Use these percentiles to pick a min_abs_diff
+    # cutoff for a display dead-zone (PyMOL ramp) or a future thresholded
+    # export, instead of eyeballing one.
+    signal_mask = (contact > 0) | (non_contact > 0)
+    n_signal = int(np.count_nonzero(signal_mask))
+    stats = {'n_pos': n_pos, 'n_neg': n_neg, 'n_signal': n_signal,
+             'diff_min': float(diff.min()), 'diff_max': float(diff.max()),
+             'contact_dominant_empty': (n_neg == 0), 'noncontact_dominant_empty': (n_pos == 0)}
+    if n_signal > 0:
+        abs_diff_signal = np.abs(diff[signal_mask])
+        percentiles = [50, 75, 90, 95, 99]
+        pvals = np.percentile(abs_diff_signal, percentiles)
+        pct_str = "  ".join(f"p{p}={v:.4f}" for p, v in zip(percentiles, pvals))
+        stats['abs_diff_mean'] = float(abs_diff_signal.mean())
+        stats['abs_diff_std']  = float(abs_diff_signal.std())
+        stats['abs_diff_percentiles'] = dict(zip(percentiles, (float(v) for v in pvals)))
+        line3 = (f"|diff| over {n_signal:,} signal voxels: "
+                f"mean={abs_diff_signal.mean():.4f}  std={abs_diff_signal.std():.4f}  {pct_str}")
+
+        abs_ratio_signal = np.abs(ratio[signal_mask])
+        rvals = np.percentile(abs_ratio_signal, percentiles)
+        rpct_str = "  ".join(f"p{p}={v:.4f}" for p, v in zip(percentiles, rvals))
+        stats['abs_ratio_mean'] = float(abs_ratio_signal.mean())
+        stats['abs_ratio_std']  = float(abs_ratio_signal.std())
+        stats['abs_ratio_percentiles'] = dict(zip(percentiles, (float(v) for v in rvals)))
+        line4 = (f"|ratio| over {n_signal:,} signal voxels: "
+                f"mean={abs_ratio_signal.mean():.4f}  std={abs_ratio_signal.std():.4f}  {rpct_str}")
+    else:
+        line3 = "(no signal voxels — contact and non_contact both all-zero)"
+        line4 = None
+    print(f"    {line3}")
+    if line4 is not None:
+        print(f"    {line4}")
+
+    summary_text = f"  {line1}\n    {line2}\n    {line2b}\n    {line2c}\n    {line2d}\n    {line3}"
+    if line4 is not None:
+        summary_text += f"\n    {line4}"
+    for l in empty_lines:
+        summary_text += f"\n    ⚠ {l}"
+    for l in tier_lines:
+        summary_text += f"\n    {l}"
+
+    return {'path': out_path, 'ratio_path': ratio_out_path,
+            'ratio_noncontact_path': ratio_noncontact_path, 'ratio_contact_path': ratio_contact_path,
+            'ratio_noncontact_tier_paths': ratio_noncontact_tier_paths,
+            'ratio_contact_tier_paths': ratio_contact_tier_paths,
+            'diff': diff, 'ratio': ratio, 'contact': contact, 'non_contact': non_contact,
+            'ratio_noncontact_dominant': ratio_noncontact_dominant,
+            'ratio_contact_dominant': ratio_contact_dominant,
+            'signal_mask': signal_mask, 'n_signal': n_signal, 'stats': stats,
+            'summary_text': summary_text}
+
+
+def plot_diff_histogram(diff: np.ndarray, signal_mask: np.ndarray, category: str,
+                        title: str = '', nbins: int = 60,
+                        xlabel: str = 'diff = non_contact − contact') -> '_MplFigure':
+    """Histogram of a signed per-voxel quantity (diff_category()'s 'diff' or
+    'ratio') restricted to signal voxels (contact>0 or non_contact>0) — the
+    same population diff_category() reports percentiles for, so a shape seen
+    here matches the numbers already printed. Bars are colored by sign
+    (contact-dominant vs non-contact-dominant) rather than a single hue,
+    since both quantities are signed/diverging with a meaningful zero — same
+    red/blue convention as viewing the map in PyMOL with the 'esp' ramp.
+    Dotted lines mark the +/-90th/95th/99th percentile of the absolute value
+    (same numbers as the printed diagnostic) as a visual guide for picking a
+    noise-floor cutoff. Pass ratio_category's array with
+    xlabel='ratio = (non_contact − contact) / (non_contact + contact)' to
+    reuse this for the ratio instead of raw diff.
+
+    matplotlib rather than Plotly — Scattergl/WebGL rendering was unreliable
+    in this project's VSCode/Kubuntu setup. Built via the plain Figure/Axes
+    OO API (not pyplot.subplots()) so it never touches pyplot's global
+    figure-stack state; display with show_figure() in a notebook.
+
+    Returns an empty, annotated figure rather than raising if there are no
+    signal voxels."""
+    values = diff[signal_mask]
+
+    fig = _MplFigure(figsize=(7, 4.5))
+    ax  = fig.add_subplot(111)
+
+    if len(values) == 0:
+        ax.text(0.5, 0.5, "no signal voxels", ha='center', va='center', transform=ax.transAxes)
+        ax.set_title(title or f'{category} distribution')
+        fig.tight_layout()
+        return fig
+
+    neg = values[values < 0]
+    pos = values[values > 0]
+    bin_edges = np.histogram_bin_edges(values, bins=nbins)
+
+    ax.hist(neg, bins=bin_edges, color='crimson', alpha=0.75, label='contact-dominant (<0)')
+    ax.hist(pos, bins=bin_edges, color='royalblue', alpha=0.75, label='non-contact-dominant (>0)')
+    ax.axvline(0, color='gray', linestyle='--', linewidth=1)
+
+    abs_values = np.abs(values)
+    for p, alpha in zip([90, 95, 99], [0.5, 0.35, 0.2]):
+        edge = float(np.percentile(abs_values, p))
+        for sign in (1, -1):
+            ax.axvline(sign * edge, color='gray', linestyle=':', alpha=alpha, linewidth=1)
+        ax.text(edge, 1.01, f'p{p}', transform=ax.get_xaxis_transform(),
+               ha='center', va='bottom', fontsize=8, color='gray')
+
+    ax.set_title(title or f'{category} distribution ({len(values):,} signal voxels)')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('voxel count')
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    return fig
+
+
+def plot_diff_magnitude_scatter(diff: np.ndarray, contact: np.ndarray, non_contact: np.ndarray,
+                                signal_mask: np.ndarray, category: str,
+                                title: str = '',
+                                ylabel: str = 'diff = non_contact − contact') -> '_MplFigure':
+    """Per-voxel scatter of a signed quantity (diff_category()'s 'diff' or
+    'ratio', pick via which array you pass + matching ylabel) vs total
+    occupancy magnitude (contact + non_contact), restricted to signal voxels.
+
+    With raw diff: |diff| alone can't distinguish two very different
+    situations that both produce a small value — (a) contact and non_contact
+    both substantial and close (genuine rotational/rotameric-noise
+    cancellation — the case this whole diff technique targets) vs (b) both
+    tiny and coincidentally close (background voxels barely sampled at all,
+    not "cancelled"). Note the whole point cloud is mathematically confined
+    to the wedge |diff| <= magnitude (diff = non_contact-contact, magnitude =
+    non_contact+contact, both built from the same two non-negative numbers)
+    — points sitting exactly on that wedge's edge have contact=0 (or
+    non_contact=0) exactly, i.e. never touched in the other state at all;
+    that edge being densely populated reflects a category-wide base-rate
+    imbalance (see diff_category()'s docstring), not evidence against
+    cancellation elsewhere in the cloud.
+
+    With ratio instead: the wedge constraint doesn't apply (ratio is already
+    bounded to [-1,1] independent of magnitude) — this view instead shows
+    whether ratio is more volatile at low magnitude (few frames ever touched
+    that voxel, so its ratio is small-sample noise) and settles toward a
+    stable value as magnitude grows, the usual "more data, less noise"
+    pattern for any sample proportion.
+
+    Same red/blue sign convention as plot_diff_histogram().
+
+    matplotlib rather than Plotly — Scattergl/WebGL rendering was unreliable
+    in this project's VSCode/Kubuntu setup. Points are rasterized (small,
+    semi-transparent) since signal populations here run into the hundreds of
+    thousands of voxels; built via the plain Figure/Axes OO API, display with
+    show_figure() in a notebook.
+
+    Returns an empty, annotated figure rather than raising if there are no
+    signal voxels."""
+    d = diff[signal_mask]
+
+    fig = _MplFigure(figsize=(7, 4.5))
+    ax  = fig.add_subplot(111)
+
+    if len(d) == 0:
+        ax.text(0.5, 0.5, "no signal voxels", ha='center', va='center', transform=ax.transAxes)
+        ax.set_title(title or f'{category} vs magnitude')
+        fig.tight_layout()
+        return fig
+
+    magnitude = (contact + non_contact)[signal_mask]
+    neg_mask  = d < 0
+    pos_mask  = d > 0
+
+    ax.scatter(magnitude[neg_mask], d[neg_mask], s=3, alpha=0.35, color='crimson',
+              label='contact-dominant (<0)', rasterized=True, linewidths=0)
+    ax.scatter(magnitude[pos_mask], d[pos_mask], s=3, alpha=0.35, color='royalblue',
+              label='non-contact-dominant (>0)', rasterized=True, linewidths=0)
+    ax.axhline(0, color='gray', linestyle='--', linewidth=1)
+
+    ax.set_title(title or f'{category} vs total occupancy ({len(d):,} signal voxels)')
+    ax.set_xlabel('total occupancy = contact + non_contact')
+    ax.set_ylabel(ylabel)
+    ax.legend(fontsize=8, markerscale=3)
+    fig.tight_layout()
+    return fig
+
+
+def show_figure(fig: '_MplFigure', dpi: int = 100) -> None:
+    """Render a Figure to a PNG buffer via the Agg canvas and display it
+    inline with IPython.display.Image, bypassing IPython's matplotlib-inline
+    backend/formatter detection entirely. plot_diff_histogram()/
+    plot_diff_magnitude_scatter() build figures via the plain Figure/Axes API
+    (never import pyplot), so the usual auto-detection that activates the
+    inline backend on `import matplotlib.pyplot` never fires — `display(fig)`
+    then falls back to Figure's plain text repr instead of rendering an
+    image. Rendering to PNG bytes ourselves sidesteps that: Agg needs no
+    display server/GUI/WebGL, and IPython.display.Image's formatter is core
+    IPython, not backend-dependent, so this works the same regardless of
+    what (if anything) configured matplotlib's global backend."""
+    import io as _io
+    from IPython.display import Image, display as _display
+    canvas = _MplFigureCanvasAgg(fig)
+    buf = _io.BytesIO()
+    canvas.print_figure(buf, dpi=dpi, format='png')
+    _display(Image(data=buf.getvalue()))
 
 
 # ── PCA and trajectory clustering helpers ────────────────────────────────────
