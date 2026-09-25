@@ -20,21 +20,21 @@ export const FEATURES = [
 // Two independent pharmacophores per subset, per view_pharmacophore.pml's own
 // section headers: "CHEMICAL FEATURES (GROWTH SPACE)" (growth_features/) and
 // "PHARMACOPHORE FROM CONTESTED SPACE" (pharmacophore_contested/).
-//   Growth space:    protein occupancy < 30% of the trajectory
-//   Contested space: protein occupancy >= 30% of the trajectory
+//   Growth space:  protein occupancy < 30% of the trajectory
+//   Pharmacophore: protein occupancy >= 30% of the trajectory
 // (definitions from the negative_space/ comments in the same pml).
 // baseNames map each FEATURES id to that space's actual filename prefix.
 //
 // Thinned top-N% variants are missing for some subsets in each space (source
 // pipeline gap, not a bug here): growth space -- 1AA_PCA_C0_Graph0/1,
-// Maso_PCA_C1_Graph0-3; contested space -- 1AA_PCA_C0(+Graph0/1),
+// Maso_PCA_C1_Graph0-3; pharmacophore -- 1AA_PCA_C0(+Graph0/1),
 // EPI_PCA_C1(+Graph0-3), Maso_PCA_C1(+Graph0-3). Picking an unavailable
 // resolution surfaces the viewer's normal fetch-error state.
 export const SPACE_DEFINITIONS =
-  'Growth space: protein occupancy below 30% of the trajectory. Contested space: protein occupancy at or above 30%.'
+  'Growth space: protein occupancy below 30% of the trajectory. Pharmacophore: protein occupancy at or above 30%.'
 
-// Contested space breaks each occupancy map down into how it splits between
-// ligand-contact and non-contact frames. Only aromatic, hbond_acceptor, and
+// Pharmacophore breaks each occupancy map down into how it splits between
+// geometrically satisfied and unsatisfied contacts. Only aromatic, hbond_acceptor, and
 // hbond_donor have this breakdown in the source pipeline -- hydrophobic and
 // the charge features only ever have the plain map. Colors mirror the pml
 // where it colors these meshes at all (aromatic/hbond_* only); extended to
@@ -48,10 +48,10 @@ export const SPACE_DEFINITIONS =
 // reference script, so there's no established interpretation to go on.
 const CONTESTED_VARIANTS = [
   { id: 'plain', label: 'All sites', suffix: '', color: null },
-  { id: 'contacts', label: 'Contacts', suffix: '_contacts', color: 0x8000ff },
-  { id: 'non_contacts', label: 'Non-contacts', suffix: '_non_contacts', color: 0xff6b6b },
-  { id: 'ratio_contact_dominant', label: 'Contact-dominant ratio', suffix: '_ratio_contact_dominant', color: 0x00ffff },
-  { id: 'ratio_noncontact_dominant', label: 'Non-contact-dominant ratio', suffix: '_ratio_noncontact_dominant', color: 0xff6b6b },
+  { id: 'contacts', label: 'Satisfied', suffix: '_contacts', color: 0x8000ff },
+  { id: 'non_contacts', label: 'Unsatisfied', suffix: '_non_contacts', color: 0xff6b6b },
+  { id: 'ratio_contact_dominant', label: 'Satisfied-dominant ratio', suffix: '_ratio_contact_dominant', color: 0x00ffff },
+  { id: 'ratio_noncontact_dominant', label: 'Unsatisfied-dominant ratio', suffix: '_ratio_noncontact_dominant', color: 0xff6b6b },
 ]
 
 const PLAIN_ONLY_VARIANT = [{ id: 'plain', label: 'All sites', suffix: '', color: null }]
@@ -73,7 +73,7 @@ export const SPACES = [
   },
   {
     id: 'contested',
-    label: 'Contested space',
+    label: 'Pharmacophore',
     featuresDir: 'pharmacophore_contested',
     variants: CONTESTED_VARIANTS,
     baseNames: {
@@ -105,7 +105,7 @@ export const RESOLUTIONS = [
 // ramp endpoints (growth_vol -> blue, contested_vol -> orange).
 export const NEGATIVE_SPACE_LAYERS = [
   { id: 'growth_space', label: 'Growth space', file: 'growth_space.mrc.gz', color: 0x2255ee },
-  { id: 'contested_space', label: 'Contested space', file: 'contested_space.mrc.gz', color: 0xff7800 },
+  { id: 'contested_space', label: 'Pharmacophore', file: 'contested_space.mrc.gz', color: 0xff7800 },
 ]
 
 // All 47 curated subsets from output/ (everything with growth_features/,
