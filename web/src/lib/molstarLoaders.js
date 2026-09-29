@@ -43,6 +43,14 @@ export async function loadVolumeIsosurface(plugin, url, { isoValue, color, alpha
   await format.commit({ revertOnError: true })
 
   const stats = volume.selector.data.grid.stats
+  // Some subset/category combinations are legitimately all-zero (e.g. a
+  // ratio-dominant split with no voxels on that side of the comparison — see
+  // DEVELOPMENT.md's "base-rate-imbalance" section in the pipeline repo).
+  // Loading still succeeds and an isosurface repr is still created below
+  // (harmless — it just renders nothing), but flag it so the caller can show
+  // an explicit "no data" state instead of a degenerate min===max slider over
+  // a silently blank viewport.
+  const isEmpty = stats.max <= stats.min
   const resolvedIsoValue = isoValue ?? defaultIsoValue(stats)
 
   const repr = plugin.build().to(volume).apply(
@@ -60,7 +68,7 @@ export async function loadVolumeIsosurface(plugin, url, { isoValue, color, alpha
   const reprSelector = repr.selector
   await repr.commit()
 
-  return { binaryData, format, volume, repr: reprSelector, stats, isoValue: resolvedIsoValue }
+  return { binaryData, format, volume, repr: reprSelector, stats, isoValue: resolvedIsoValue, isEmpty }
 }
 
 export async function updateIsosurfaceLevel(reprSelector, isoValue) {

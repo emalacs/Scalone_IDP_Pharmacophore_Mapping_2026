@@ -33,8 +33,9 @@ export default function MolstarViewer({
   const [pluginReady, setPluginReady] = useState(false)
   const [loadState, setLoadState] = useState('loading')
   const [volumeStats, setVolumeStats] = useState(null)
+  const [volumeIsEmpty, setVolumeIsEmpty] = useState(false)
   const [contour, setContour] = useState(0)
-  // layer id -> { stats, contour }. Only set once a layer's volume has
+  // layer id -> { stats, contour, isEmpty }. Only set once a layer's volume has
   // actually loaded, so the sidebar slider for it can be bounded/seeded from
   // real data rather than a guessed range.
   const [layerVolumeInfo, setLayerVolumeInfo] = useState({})
@@ -78,6 +79,7 @@ export default function MolstarViewer({
     let cancelled = false
     setLoadState('loading')
     setVolumeStats(null)
+    setVolumeIsEmpty(false)
     reprRef.current = null
 
     ;(async () => {
@@ -92,21 +94,25 @@ export default function MolstarViewer({
         await loadLigandStructure(plugin, ligandUrl)
         if (cancelled) return
 
-        const { repr, stats, isoValue } = await loadVolumeIsosurface(plugin, featureUrl, {
+        const { repr, stats, isoValue, isEmpty } = await loadVolumeIsosurface(plugin, featureUrl, {
           color: feature.color,
         })
         if (cancelled) return
         reprRef.current = repr
         setVolumeStats(stats)
+        setVolumeIsEmpty(isEmpty)
         setContour(isoValue)
 
         for (const layer of layersRef.current) {
           if (!layer.visible) continue
-          const { binaryData, repr: layerRepr, stats: layerStats, isoValue: layerIsoValue } =
+          const { binaryData, repr: layerRepr, stats: layerStats, isoValue: layerIsoValue, isEmpty: layerIsEmpty } =
             await loadVolumeIsosurface(plugin, layer.url, { color: layer.color })
           if (cancelled) return
           layerStateRef.current.set(layer.id, { binaryData, repr: layerRepr })
-          setLayerVolumeInfo((prev) => ({ ...prev, [layer.id]: { stats: layerStats, contour: layerIsoValue } }))
+          setLayerVolumeInfo((prev) => ({
+            ...prev,
+            [layer.id]: { stats: layerStats, contour: layerIsoValue, isEmpty: layerIsEmpty },
+          }))
         }
 
         plugin.managers.camera.reset()
@@ -140,12 +146,12 @@ export default function MolstarViewer({
         const loaded = layerStateRef.current.get(layer.id)
         if (layer.visible && !loaded) {
           try {
-            const { binaryData, repr, stats, isoValue } = await loadVolumeIsosurface(plugin, layer.url, {
+            const { binaryData, repr, stats, isoValue, isEmpty } = await loadVolumeIsosurface(plugin, layer.url, {
               color: layer.color,
             })
             if (cancelled) return
             layerStateRef.current.set(layer.id, { binaryData, repr })
-            setLayerVolumeInfo((prev) => ({ ...prev, [layer.id]: { stats, contour: isoValue } }))
+            setLayerVolumeInfo((prev) => ({ ...prev, [layer.id]: { stats, contour: isoValue, isEmpty } }))
           } catch (err) {
             console.error(err)
           }
@@ -209,7 +215,12 @@ export default function MolstarViewer({
               />
               {layer.label}
             </label>
-            {layer.visible && info && (
+            {layer.visible && info && info.isEmpty && (
+              <p className="pl-6 text-xs text-amber-400/90">
+                No data — every voxel is zero for this selection.
+              </p>
+            )}
+            {layer.visible && info && !info.isEmpty && (
               <div className="flex items-center gap-2 pl-6 text-xs text-white/60">
                 <input
                   type="range"
@@ -242,7 +253,12 @@ export default function MolstarViewer({
           Failed to load — see console
         </div>
       )}
-      {volumeStats && (
+      {volumeStats && volumeIsEmpty && (
+        <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-amber-900/85 px-3 py-2 text-xs text-amber-100">
+          No data in this map — every voxel is zero for the current selection.
+        </div>
+      )}
+      {volumeStats && !volumeIsEmpty && (
         <div className="absolute bottom-2 left-2 flex items-center gap-2 rounded bg-black/70 px-3 py-2 text-xs text-white">
           <span className="whitespace-nowrap">Contour</span>
           <input

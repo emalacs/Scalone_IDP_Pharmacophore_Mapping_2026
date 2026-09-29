@@ -16,10 +16,15 @@ const labelClass = 'block text-xs font-medium uppercase tracking-wide text-white
 const selectClass =
   'mt-1 w-full rounded border border-white/20 bg-white/5 px-2 py-1.5 text-sm text-white focus:border-dartmouth-green focus:outline-none focus:ring-1 focus:ring-dartmouth-green'
 
+// Pharmacophore (contested space) is the more commonly inspected of the two --
+// default to it rather than the SPACES array's own (Growth space first) order,
+// so a reorder of that array doesn't silently change the default.
+const DEFAULT_SPACE = SPACES.find((s) => s.id === 'contested') ?? SPACES[0]
+
 export default function App() {
   const [subsetId, setSubsetId] = useState(SUBSETS[0].id)
-  const [spaceId, setSpaceId] = useState(SPACES[0].id)
-  const [variantId, setVariantId] = useState(SPACES[0].variants[0].id)
+  const [spaceId, setSpaceId] = useState(DEFAULT_SPACE.id)
+  const [variantId, setVariantId] = useState(DEFAULT_SPACE.variants[0].id)
   const [featureId, setFeatureId] = useState(FEATURES[0].id)
   const [resolutionId, setResolutionId] = useState(RESOLUTIONS[3].id) // top5pct
   const [visibleLayerIds, setVisibleLayerIds] = useState(() => new Set())
@@ -75,27 +80,52 @@ export default function App() {
         {/* Institution header */}
         <div className="space-y-3">
           <img
-            src="/dartmouth-logo.svg"
+            src={`${import.meta.env.BASE_URL}dartmouth-logo.svg`}
             alt="Dartmouth College"
             className="h-9 w-auto"
             onError={(e) => {
               e.currentTarget.style.display = 'none'
             }}
           />
-          {/* TODO: replace with the actual lab/department affiliation */}
           <div className="text-xs uppercase tracking-wide text-white/50">Department of Chemistry · Dartmouth College</div>
           <div className="space-y-1.5">
             <p className="text-sm font-medium leading-snug text-white">
               Dynamic Pharmacophore Mapping for Intrinsically Disordered Drug Targets
             </p>
-            {/* TODO: paper + SI links, to be provided */}
-            <div className="flex gap-3 text-xs">
-              <a href="#" className="text-dartmouth-green underline decoration-dartmouth-green/50 hover:text-white">
+            <div className="space-y-1 text-xs">
+              {/* TODO: paper URL, still to be provided */}
+              <a href="#" className="block text-dartmouth-green underline decoration-dartmouth-green/50 hover:text-white">
                 Paper
               </a>
-              <a href="#" className="text-dartmouth-green underline decoration-dartmouth-green/50 hover:text-white">
-                Supplementary Information
-              </a>
+              <div className="text-white/50">Supplementary Information</div>
+              <ul className="space-y-0.5 pl-3">
+                <li>
+                  <a
+                    href="https://github.com/emalacs/Scalone_IDP_Pharmacophore_Mapping_2026"
+                    className="text-dartmouth-green underline decoration-dartmouth-green/50 hover:text-white"
+                  >
+                    Repository
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://colab.research.google.com/github/emalacs/Scalone_IDP_Pharmacophore_Mapping_2026/blob/main/notebooks/01_split_trajectory_pca_graph.ipynb"
+                    className="text-dartmouth-green underline decoration-dartmouth-green/50 hover:text-white"
+                  >
+                    Colab · Split trajectory (PCA + Graph)
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://colab.research.google.com/github/emalacs/Scalone_IDP_Pharmacophore_Mapping_2026/blob/main/notebooks/02_pharmacophore_from_subset.ipynb"
+                    className="text-dartmouth-green underline decoration-dartmouth-green/50 hover:text-white"
+                  >
+                    Colab · Pharmacophore from subset
+                  </a>
+                </li>
+                {/* TODO: link once the Zenodo deposit + DOI exist */}
+                <li className="text-white/40">Zenodo (DOI pending)</li>
+              </ul>
             </div>
           </div>
         </div>
@@ -117,17 +147,32 @@ export default function App() {
             </select>
           </label>
 
-          <label className="block">
+          <div>
             <span className={labelClass}>Pharmacophore space</span>
-            <select className={selectClass} value={spaceId} onChange={(e) => handleSpaceChange(e.target.value)}>
+            <div className="mt-1 grid grid-cols-2 gap-1 rounded border border-white/20 bg-white/5 p-1 text-sm">
               {SPACES.map((s) => (
-                <option key={s.id} value={s.id}>
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => handleSpaceChange(s.id)}
+                  aria-pressed={spaceId === s.id}
+                  className={`rounded px-2 py-1.5 transition-colors ${
+                    spaceId === s.id ? 'bg-dartmouth-green text-white' : 'text-white/60 hover:text-white'
+                  }`}
+                >
                   {s.label}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
             <p className="mt-1 text-xs text-white/40">{SPACE_DEFINITIONS}</p>
-          </label>
+          </div>
+
+          {/* Negative-space layer toggles + contour sliders, rendered by MolstarViewer via portal
+              once each layer's volume stats are known. */}
+          <div className="space-y-2">
+            <span className={labelClass}>Show</span>
+            <div ref={setLayerSlotNode} className="space-y-3" />
+          </div>
 
           {space.variants.length > 1 && (
             <label className="block">
@@ -163,15 +208,6 @@ export default function App() {
               ))}
             </select>
           </label>
-        </div>
-
-        <hr className="border-white/10" />
-
-        {/* Negative-space layer toggles + contour sliders, rendered by MolstarViewer via portal
-            once each layer's volume stats are known. */}
-        <div className="space-y-3">
-          <div className={labelClass}>Negative space</div>
-          <div ref={setLayerSlotNode} className="space-y-3" />
         </div>
       </aside>
 
