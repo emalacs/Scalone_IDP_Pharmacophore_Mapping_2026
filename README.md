@@ -14,7 +14,8 @@ An interactive, browser-based viewer (React + [Mol*](https://molstar.org/)) for 
 web/       Interactive viewer (React + Vite + Mol*), deployed to GitHub Pages
 output/    Pharmacophore density maps (.mrc, gzip-compressed) and ligand structures (.pdb)
            per trajectory subset, browsable and downloadable directly from this repo
-notebooks/ Google Colab notebooks for running the pipeline on your own trajectories
+notebooks/ Notebooks for running the pipeline on your own trajectories -- local by default,
+           notebooks/colab/ has the Google Colab variants (upload widget, no local install)
 pharmacophore_utils.py  Core pipeline module the notebooks import
 ```
 
@@ -25,17 +26,23 @@ pharmacophore_utils.py  Core pipeline module the notebooks import
 
 ## Running the pipeline on your own trajectory
 
-Open in Google Colab (no local install required):
+**Locally** (installs [`idp-pharmacophore-tools`](https://github.com/emalacs/idp-pharmacophore-tools), points at files already on disk):
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/emalacs/Scalone_IDP_Pharmacophore_Mapping_2026/blob/main/notebooks/01_split_trajectory_pca_graph.ipynb) [`01_split_trajectory_pca_graph.ipynb`](notebooks/01_split_trajectory_pca_graph.ipynb) — upload a trajectory + topology, split it into conformational subsets by PCA and graph clustering
+[`01_split_trajectory_pca_graph.ipynb`](notebooks/01_split_trajectory_pca_graph.ipynb) — split a trajectory + topology into conformational subsets by PCA and graph clustering
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/emalacs/Scalone_IDP_Pharmacophore_Mapping_2026/blob/main/notebooks/02_pharmacophore_from_subset.ipynb) [`02_pharmacophore_from_subset.ipynb`](notebooks/02_pharmacophore_from_subset.ipynb) — upload a single trajectory (e.g. one subset from the notebook above), compute its pharmacophore maps and a PyMOL script to view them
+[`02_pharmacophore_from_subset.ipynb`](notebooks/02_pharmacophore_from_subset.ipynb) — compute a single trajectory's (e.g. one subset from the notebook above) pharmacophore maps and a PyMOL script to view them
 
-Or run `pharmacophore_utils.py` locally — see `requirements.txt`.
+**Or in Google Colab** (no local install, upload widget instead of local paths):
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/emalacs/Scalone_IDP_Pharmacophore_Mapping_2026/blob/main/notebooks/colab/01_split_trajectory_pca_graph.ipynb) [`notebooks/colab/01_split_trajectory_pca_graph.ipynb`](notebooks/colab/01_split_trajectory_pca_graph.ipynb)
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/emalacs/Scalone_IDP_Pharmacophore_Mapping_2026/blob/main/notebooks/colab/02_pharmacophore_from_subset.ipynb) [`notebooks/colab/02_pharmacophore_from_subset.ipynb`](notebooks/colab/02_pharmacophore_from_subset.ipynb)
+
+Each notebook's own intro cell links to its counterpart if you started in the wrong one.
 
 ## Status
 
-This repository currently contains the interactive viewer, a curated subset of pharmacophore maps (3 trajectory subsets), and the analysis pipeline + Colab notebooks. Still to come:
+This repository currently contains the interactive viewer, a curated subset of pharmacophore maps (3 trajectory subsets), and the analysis pipeline + notebooks (local and Colab). Still to come:
 
 - Pharmacophore maps for the remaining trajectory subsets
 - Raw MD trajectories, to be deposited on Zenodo (linked here once available)
