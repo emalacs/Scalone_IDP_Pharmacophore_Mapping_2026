@@ -27,8 +27,22 @@ export function defaultIsoValue(stats) {
   return Math.min(stats.max, Math.max(stats.min, value))
 }
 
+// Thrown when the server has no file at a map's URL (HTTP 404). For the feature
+// maps this is an expected state, not a failure: the pipeline writes no map
+// (and no thinned top-N% variants) when a subset has nothing to put in it --
+// e.g. an unbound ligand has no pharmacophore sites. Callers show a neutral
+// "no map" note for this instead of the generic load-error state.
+export class MapNotAvailableError extends Error {
+  constructor(url) {
+    super(`No map at ${url} (404)`)
+    this.name = 'MapNotAvailableError'
+    this.url = url
+  }
+}
+
 export async function loadVolumeIsosurface(plugin, url, { isoValue, color, alpha = 0.45 } = {}) {
   const res = await fetch(url)
+  if (res.status === 404) throw new MapNotAvailableError(url)
   if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`)
   const raw = new Uint8Array(await res.arrayBuffer())
   // Some static servers (Vite's dev/preview server included) auto-decompress

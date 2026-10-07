@@ -29,7 +29,7 @@ export const FEATURES = [
 // pipeline gap, not a bug here): growth space -- 1AA_PCA_C0_Graph0/1,
 // Maso_PCA_C1_Graph0-3; pharmacophore -- 1AA_PCA_C0(+Graph0/1),
 // EPI_PCA_C1(+Graph0-3), Maso_PCA_C1(+Graph0-3). Picking an unavailable
-// resolution surfaces the viewer's normal fetch-error state.
+// resolution shows the viewer's neutral "no map for this selection" note.
 export const SPACE_DEFINITIONS =
   'Growth space: protein occupancy below 30% of the trajectory. Pharmacophore: protein occupancy at or above 30%.'
 
@@ -40,7 +40,7 @@ export const SPACE_DEFINITIONS =
 // where it colors these meshes at all (aromatic/hbond_* only); extended to
 // all variant/feature combinations for a consistent UI. Picking a variant on
 // hydrophobic/charge features, or a thinned resolution the source pipeline
-// didn't generate for a given subset, surfaces the normal fetch-error state.
+// didn't generate for a given subset, shows the neutral "no map" note.
 //
 // "diff"/"diff_ratio" (aromatic/hbond_* _diff.mrc, no thinned variants) were
 // deliberately left out: unlike these four, they're never referenced by

@@ -5,6 +5,7 @@ import { PluginConfig } from 'molstar/lib/mol-plugin/config'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
+  MapNotAvailableError,
   clearPlugin,
   loadLigandStructure,
   loadVolumeIsosurface,
@@ -94,14 +95,23 @@ export default function MolstarViewer({
         await loadLigandStructure(plugin, ligandUrl)
         if (cancelled) return
 
-        const { repr, stats, isoValue, isEmpty } = await loadVolumeIsosurface(plugin, featureUrl, {
-          color: feature.color,
-        })
-        if (cancelled) return
-        reprRef.current = repr
-        setVolumeStats(stats)
-        setVolumeIsEmpty(isEmpty)
-        setContour(isoValue)
+        // A missing map (404) is an expected state, not an error -- see
+        // MapNotAvailableError. Keep going so the ligand and any toggled layers
+        // still render, and just flag the primary map as unavailable.
+        let primaryUnavailable = false
+        try {
+          const { repr, stats, isoValue, isEmpty } = await loadVolumeIsosurface(plugin, featureUrl, {
+            color: feature.color,
+          })
+          if (cancelled) return
+          reprRef.current = repr
+          setVolumeStats(stats)
+          setVolumeIsEmpty(isEmpty)
+          setContour(isoValue)
+        } catch (err) {
+          if (!(err instanceof MapNotAvailableError)) throw err
+          primaryUnavailable = true
+        }
 
         for (const layer of layersRef.current) {
           if (!layer.visible) continue
@@ -116,7 +126,7 @@ export default function MolstarViewer({
         }
 
         plugin.managers.camera.reset()
-        setLoadState('ready')
+        setLoadState(primaryUnavailable ? 'unavailable' : 'ready')
       } catch (err) {
         // A superseded reload (e.g. rapid dropdown changes) can crash mid-flight
         // when a newer effect's clearPlugin() wipes state out from under this
@@ -137,7 +147,8 @@ export default function MolstarViewer({
   // ligand or the primary feature isosurface.
   useEffect(() => {
     const plugin = pluginRef.current
-    if (!pluginReady || !plugin || loadState !== 'ready') return
+    // 'unavailable' (primary map absent) still has a live scene to toggle layers on.
+    if (!pluginReady || !plugin || (loadState !== 'ready' && loadState !== 'unavailable')) return
 
     let cancelled = false
 
@@ -251,6 +262,15 @@ export default function MolstarViewer({
       {loadState === 'error' && (
         <div className="pointer-events-none absolute top-2 left-2 rounded bg-red-700/80 px-2 py-1 text-xs text-white">
           Failed to load — see console
+        </div>
+      )}
+      {loadState === 'unavailable' && (
+        <div
+          role="status"
+          className="pointer-events-none absolute bottom-2 left-2 max-w-sm rounded bg-amber-900/85 px-3 py-2 text-xs text-amber-100"
+        >
+          No map for this selection — none was generated, usually because there are no sites to map in this
+          subset. Try the full-resolution map or another feature.
         </div>
       )}
       {volumeStats && volumeIsEmpty && (
