@@ -111,11 +111,13 @@ except ImportError:
 try:
     import torch
     USE_GPU    = torch.cuda.is_available()
-    GPU_DEVICE = torch.device('cuda:1') if USE_GPU else None
-    # GPU_DEVICE = torch.device('cuda') if USE_GPU else None
+    # Current CUDA device (index 0 unless torch.cuda.set_device() was called). Don't hardcode an
+    # ordinal like 'cuda:1' -- it doesn't exist on single-GPU machines (e.g. Colab). To use a
+    # specific GPU on a multi-GPU machine, launch with CUDA_VISIBLE_DEVICES=<n> instead.
+    GPU_DEVICE = torch.device('cuda') if USE_GPU else None
     TORCH_AVAILABLE = True
     if USE_GPU:
-        print(f"[GPU] Acceleration enabled: {torch.cuda.get_device_name(0)}")
+        print(f"[GPU] Acceleration enabled: {torch.cuda.get_device_name(torch.cuda.current_device())}")
 except ImportError:
     torch      = None
     USE_GPU    = False
